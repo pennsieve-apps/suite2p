@@ -197,6 +197,7 @@ def test_scanimage_metadata_and_volume_times():
     info = MovieInfo(n_pages=(3 + 1) * 2 * 10, Ly=8, Lx=8, dtype="uint16")
     parse_scanimage({"SI.hChannels.channelSave": [1, 2], "SI.hFastZ.enable": True,
                      "SI.hStackManager.actualNumSlices": 3, "SI.hFastZ.numDiscardFlybackFrames": 1,
+                     "SI.hFastZ.discardFlybackFrames": False,
                      "SI.hRoiManager.scanVolumeRate": 5.0, "SI.hRoiManager.scanFrameRate": 20.0}, info)
     assert (info.nplanes, info.nchannels, info.flyback, info.fs_volume) == (3, 2, 1, 5.0)
     info.t0 = 2.0
@@ -204,6 +205,13 @@ def test_scanimage_metadata_and_volume_times():
     assert len(vt) == 10 and vt[1] - vt[0] == pytest.approx(0.2)
     assert plane_times(info, 2, 0, 2)[0] == pytest.approx(2.0 + 2 / (5.0 * 4))
     assert window(info, 2.3, 3.0) == (2, 5)
+
+
+def test_nbins_fits_memory_limit():
+    from processor.pipeline import fit_nbins
+    assert fit_nbins(5000, 512, 512, limit=16 * 2**30) == 3752
+    assert fit_nbins(5000, 512, 512, limit=4 * 2**30) == 416
+    assert fit_nbins(5000, 128, 128, limit=4 * 2**30) == 5000
 
 
 def test_block_size_fits_small_fields():
@@ -223,3 +231,40 @@ def test_reference_roi_matching():
     ours = [disc(10, 11), disc(30, 30), disc(10, 30, 2)]       # one good match, one miss, one too small
     r, c, iou = match(ref, ours, Ly * Lx)
     assert list(r) == [0] and list(c) == [0] and iou[0] > 0.5
+
+
+def test_scanimage_flyback_and_slow_stacks():
+    from processor.movie import MovieInfo, parse_scanimage
+    base = {"SI.hFastZ.enable": True, "SI.hStackManager.actualNumSlices": 4,
+            "SI.hFastZ.numDiscardFlybackFrames": 2, "SI.hRoiManager.scanVolumeRate": 7.5}
+    i = MovieInfo(n_pages=60, Ly=8, Lx=8, dtype="uint16")
+    parse_scanimage({**base, "SI.hFastZ.discardFlybackFrames": True}, i)
+    assert (i.nplanes, i.flyback) == (4, 0)          # discarded by ScanImage: not in the file
+    i = MovieInfo(n_pages=60, Ly=8, Lx=8, dtype="uint16")
+    parse_scanimage({**base, "SI.hFastZ.discardFlybackFrames": False}, i)
+    assert (i.nplanes, i.flyback) == (4, 2)          # saved: skipped when reading
+    i = MovieInfo(n_pages=60, Ly=8, Lx=8, dtype="uint16")
+    parse_scanimage({"SI.hStackManager.enable": True, "SI.hStackManager.stackMode": "slow",
+                     "SI.hStackManager.actualNumSlices": 10, "SI.hRoiManager.scanFrameRate": 30.0}, i)
+    assert (i.nplanes, i.flyback) == (1, 0) and i.notes
+    i = MovieInfo(n_pages=60, Ly=8, Lx=8, dtype="uint16")
+    parse_scanimage({"SI.hStackManager.enable": True, "SI.hStackManager.stackMode": "fast",
+                     "SI.hStackManager.actualNumSlices": 3, "SI.hStackManager.numFramesPerVolume": 3,
+                     "SI.hStackManager.numFramesPerVolumeWithFlyback": 4, "SI.hRoiManager.scanVolumeRate": 10.0}, i)
+    assert (i.nplanes, i.flyback, i.fs_volume) == (3, 1, 10.0)
+
+
+def test_4d_hdf5_reads_planes(tmp_path):
+    import h5py
+    from processor.movie import describe, open_source
+    from processor.sessions import discover
+    with h5py.File(tmp_path / "vol.h5", "w") as f:
+        f.create_dataset("data", data=np.zeros((60, 3, 16, 16), np.uint16))
+        f.attrs["fs"] = 5.0
+    (u,), _ = discover(tmp_path)
+    src = open_source(u)
+    info = describe(u, src, 0, 0, 0)
+    assert (info.nplanes, info.nchannels) == (3, 1) and info.n_pages == 180
+    info = describe(u, src, 0, 0, 3)
+    assert (info.nplanes, info.nchannels) == (1, 3)
+    src.close()

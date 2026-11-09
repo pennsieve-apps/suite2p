@@ -31,7 +31,7 @@ the wheel). The app writes Suite2p's own folder layout, so the output also opens
 
 | Port | Direction | Content |
 |---|---|---|
-| `movies` | input (subfolder, required) | Movies, one session each: multi-page TIFF/BigTIFF/OME-TIFF (a ScanImage series `<name>_00001.tif`, `<name>_00002.tif`, ... is one movie), HDF5 (`data` or the largest 3-D dataset), or NWB with a `TwoPhotonSeries` in `acquisition`. Port media types: `image/tiff`, `image/tiff; profile=ome-tiff`, `application/x-hdf5`, `application/x-hdf5; profile=nwb`, `text/csv`. A Bruker PrairieView folder is also read (through Suite2p's own reader) but, untested on real data, is not declared on the port (`application/vnd.pennsieve.bruker-tiff`); Micro-Manager NDTiff is not supported. Optional: `<movie stem>_timestamps.csv` (`frame, time`), `sessions.csv`, a companion NWB of the same session (identity, and reference ROIs to compare with). |
+| `movies` | input (subfolder, required) | Movies, one session each: multi-page TIFF/BigTIFF/OME-TIFF (a ScanImage series `<name>_00001.tif`, `<name>_00002.tif`, ... is one movie), HDF5 (`data` or the largest 3-D or 4-D dataset; frames × Ly × Lx, or frames × planes × Ly × Lx), or NWB with a `TwoPhotonSeries` in `acquisition`. Port media types: `image/tiff`, `image/tiff; profile=ome-tiff`, `application/x-hdf5`, `application/x-hdf5; profile=nwb`, `text/csv`. A Bruker PrairieView folder is also read (through Suite2p's own reader) but, untested on real data, is not declared on the port (`application/vnd.pennsieve.bruker-tiff`); Micro-Manager NDTiff is not supported. Optional: `<movie stem>_timestamps.csv` (`frame, time`), `sessions.csv`, a companion NWB of the same session (identity, and reference ROIs to compare with). |
 | `cellpose-model` | input (subfolder, optional) | A Cellpose model file, only for `DETECTION=anatomical`. |
 | `suite2p` | output | `suite2p/<session_id>/...` (below), `suite2p/sessions.csv`, `summary.json`, `provenance.json`. |
 
@@ -83,7 +83,7 @@ curated segmentation of the same session is the evidence we show.
 |---|---|---|
 | `FS` | `0` | Frame rate per plane (Hz); 0 = from the frame times or metadata (the run fails with a clear message when there is neither). |
 | `TAU` | `0.7` | Indicator decay time (s): 0.7 GCaMP6f, 1.0 GCaMP6m, 1.25-1.5 GCaMP6s, about 0.3-0.5 GCaMP8f/m (Suite2p's documentation). It sets the time binning for detection and Suite2p's own deconvolution. |
-| `NPLANES`, `NCHANNELS` | `0` | Interleaved planes / channels; 0 = from ScanImage metadata (fast-z slices, saved channels, flyback frames dropped), else 1. |
+| `NPLANES`, `NCHANNELS` | `0` | Interleaved planes / channels; 0 = from the file: ScanImage metadata (fast-z volumes only: `hFastZ.enable`, or `hStackManager` with stackMode fast; saved channels; flyback frames skipped only when ScanImage saved them, i.e. `discardFlybackFrames` false; a slow stack is one plane), or the second axis of a 4-D HDF5 dataset (planes, divided by `NCHANNELS` when set), else 1. **The ScanImage parsing is untested on real ScanImage files** (no openly licensed multi-plane ScanImage TIFF was at hand); set NPLANES/NCHANNELS explicitly if in doubt. |
 | `FUNCTIONAL_CHAN` | `1` | With two channels, the one with the indicator. |
 | `T_START`, `T_STOP` | empty | Optional time window (s, session clock). |
 | `DO_REGISTRATION` | `true` | Motion correction (turn off for movies registered before). |
@@ -101,25 +101,44 @@ curated segmentation of the same session is the evidence we show.
 
 | Variant | Compute | Image | When |
 |---|---|---|---|
-| `gpu` (default) | NVIDIA T4 or newer, 15 GB RAM (about 20,000 frames of 512 × 512; more frames need more RAM, see Runtime) | CUDA 12.6 PyTorch | Suite2p 1.x is PyTorch end to end; registration, detection and extraction run on the GPU. Falls back to CPU (logged `USE_GPU=auto: cuda not available, using cpu`) when no GPU is visible. `BATCH_SIZE=100` fits a T4's 16 GB; raise it on a larger card. |
-| `cpu` | 4 vCPU, 16 GB | CPU-only PyTorch | No GPU available; about 1 min (native) to 3.5 min (emulated) per 1,000 frames of 512 × 512 on 4 vCPU (below). |
+| `gpu` (default) | NVIDIA T4 or newer, 15 GB RAM (NBINS is capped to fit, see Runtime) | CUDA 12.6 PyTorch | Suite2p 1.x is PyTorch end to end; registration, detection and extraction run on the GPU. Falls back to CPU (logged `USE_GPU=auto: cuda not available, using cpu`) when no GPU is visible. `BATCH_SIZE=100` fits a T4's 16 GB; raise it on a larger card. |
+| `cpu` | 4 vCPU, 16 GB | CPU-only PyTorch | No GPU available; about 1 min per 1,000 frames of 512 × 512 on 4 vCPU in amd64 emulation (below). |
 
 ## Runtime
 
-Measured on the Allen demo (512 × 512, GCaMP6f, 15.04 Hz, uint16):
+Measured on the Allen demo (512 × 512, GCaMP6f, 15.04 Hz, uint16) with the `cpu` image in Docker,
+**amd64 emulation on an Apple M-series Mac**, 4 vCPU, `--memory`/`--memory-swap` as given, default
+parameters (`BATCH_SIZE=25`), `$TMPDIR` (Suite2p's binary) on a **disk-backed bind mount** (not
+tmpfs). Memory is the cgroup's `memory.peak`, and `memory.stat` sampled every 5-10 s (logs in
+`workflow-systems-neuroscience/data/work/allen-2p/logs/suite2p/`):
 
-| Run | Where | Frames | Wall time | Peak memory |
-|---|---|---|---|---|
-| `cpu` image, `T_START=30 T_STOP=163`, `BATCH_SIZE=25` | Docker, amd64 emulation on an Apple M-series Mac, 4 vCPU, `--memory 4g` | 2,001 | 400 s (registration ~220 s) | 2.7 GB (cgroup `memory.peak`) |
-| same, `BATCH_SIZE=100` | native arm64, 4 threads | 2,001 | 300 s | 4.2 GB (max RSS) |
-| full movie, `BATCH_SIZE=25` | native arm64 (macOS, same code, torch 2.15), 6 threads | 9,405 | 469 s | 8.1 GB (max RSS, including the memory-mapped 4.9 GB binary) |
-| full movie, `cpu` image | Docker amd64 emulation, `--memory 4g` and `6g` | 9,405 | killed (out of memory) during registration | > 6 GB |
+| Run | Frames | Limit | Result | Wall time | memory.peak | Largest `anon` | Largest mapped file pages |
+|---|---|---|---|---|---|---|---|
+| crop `T_START=30 T_STOP=163` | 2,001 | 4 GB | ok: 910 ROIs, 224 cells | 207 s | 3.3 GB | not sampled | not sampled |
+| full movie | 9,405 | 6 GB | ok: 1,363 ROIs, 383 cells | 519 s (registration 320 s, detection 98 s) | 4.8 GB | 3.5 GB | 2.6 GB |
+| full movie, NBINS not capped (before the fix below) | 9,405 | 4 GB | **killed (OOM) in detection** after binning 846 frames | | 4.0 GB | 3.3 GB | 2.4 GB |
+| full movie, NBINS capped to the limit (433 binned frames; measured before the 5 % margin, which now caps at 416) | 9,405 | 4 GB | ok: 1,092 ROIs, 380 cells | 558 s | 4.0 GB | 2.1 GB | 2.6 GB |
 
-Peak memory is about 3 GB plus the size of the registered movie (2 bytes × frames × Ly × Lx), because
-Suite2p memory-maps the binary while registering and the mapped pages count against the container's
-limit; the `cpu` variant asks for 16 GB (about 25,000 frames of 512 × 512). Registration dominates
-the time (the full demo: ~7 min of 8 natively). `BATCH_SIZE=25` halves registration's transient
-memory (4.2 → 2.5 GB at 2,001 frames) for ~15 % more time.
+What uses memory:
+
+- **Detection** dominates the process's own (anonymous) memory: about 3.5 float32 copies of the
+  binned movie, i.e. ≈ 14 bytes × binned frames × Ly × Lx (3.5 GB for 846 binned frames of 510 × 510).
+  Frames are binned in groups of about TAU × FS, and at most `NBINS` (5,000, Suite2p's default) binned
+  frames are used.
+- **The registered binary** (2 bytes × frames × Ly × Lx: 4.9 GB for the demo) is written to
+  `$TMPDIR` and memory-mapped by Suite2p: its pages are file-backed and reclaimable, but they count
+  toward `memory.peak` and in practice need ~2.5 GB of headroom. Memory does **not** grow with the
+  movie's length beyond that.
+- So the app caps `NBINS` to what fits the container's memory limit: binned frames ≤ 0.95 × (limit −
+  2.5 GB) / (14 bytes × Ly × Lx) (the 5 % margin covers Suite2p's rounding of the bin size), logged
+  in `session.json` `notes`. With the `cpu` variant's 16 GB that is 3,752 binned frames of 512 × 512,
+  enough for **about 43 min at 30 Hz with GCaMP6f** (bins of 21 frames) without capping; a **60-min,
+  30-Hz session** (108,000 frames → 5,000 binned frames by default) **fits by detecting on about
+  3,850 binned frames** (bins of 28 frames, 0.93 s), which
+  costs little for indicators as slow as GCaMP6. To detect on all 5,000, give the step ~20 GB.
+  The 4-GB run above shows the cost of a hard cap: 433 instead of 846 binned frames found 380 instead
+  of 383 cells and matched 196 instead of 201 Allen ROIs.
+- The scratch disk needs the binary's size (16 GB for 30,000 frames of 512 × 512).
 
 GPU numbers: to be measured on the dev compute node. The research notes estimate 15-25 min for
 30,000 frames on one T4-class GPU.
@@ -132,15 +151,15 @@ sized for standard/GPU tasks.
 ## Results on the demo
 
 Full demo movie (9,405 frames, 625 s of the first drifting-gratings block; outputs in
-`workflow-systems-neuroscience/data/work/allen-2p/suite2p/`): 1,363 ROIs, **385 classified as
-cells**; registration shifts ≤ 1.4 px (the movie was motion-corrected by Allen), residual PC drift
+`workflow-systems-neuroscience/data/work/allen-2p/suite2p/`, the 6-GB Docker run above): 1,363
+ROIs, **383 classified as cells**; registration shifts ≤ 1.4 px (the movie was motion-corrected by Allen), residual PC drift
 0.41 px. **201 of Allen's 353 ROIs (57 %) are matched one-to-one by our cells at IoU > 0.5**
 (median IoU of the matches 0.80; 64 % are matched by some ROI when the classifier is ignored), and
 52 % of our cells have an Allen partner. Allen segmented the whole 64-min session (and filtered its
 ROIs by its own criteria), so cells that are silent in our 10-min window cannot be found functionally;
 our unmatched cells are cells Allen left out or false positives (not checked one by one).
-On the 2,001-frame crop (133 s):
-910 ROIs, 224 cells, 103 of 353 Allen ROIs matched (29 %): the longer the recording, the more cells.
+On the 2,001-frame crop (133 s): 910 ROIs, 224 cells, 102 of 353 Allen ROIs matched (29 %): the
+longer the recording, the more cells.
 Synthetic fixture: every planted cell found (IoU > 0.25 with an accepted ROI), planted motion
 recovered (correlation > 0.9).
 

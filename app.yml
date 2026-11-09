@@ -22,9 +22,10 @@ application:
     - quality-control
     - gpu
 runtime:
-  # Shared by both variants (below), these are the cpu variant's values. Peak memory is about 3 GB plus
-  # the registered movie (int16, Suite2p memory-maps it): 2.7 GB for 2,001 frames of 512 x 512, 8.1 GB
-  # for the full 9,405-frame demo (README "Runtime"). 16 GB covers about 25,000 frames of 512 x 512.
+  # Shared by both variants (below), these are the cpu variant's values. Measured in Docker (README
+  # "Runtime"): full Allen demo (9,405 frames, 512 x 512) memory.peak 4.8 GB with a 6 GB limit. Detection
+  # memory grows with NBINS x Ly x Lx, which the app caps to fit the limit; 16 GB detects on up to 3,752
+  # binned 512 x 512 frames (a 60-min 30-Hz session fits, with slightly longer bins).
   cpu: 4096
   memory: 16384
   computeTypes:
@@ -96,6 +97,13 @@ parameters:
     type: number
     description: Detection threshold multiplier; higher finds fewer, stronger ROIs.
     defaultValue: 1.0
+  - name: NBINS
+    type: integer
+    description: >-
+      Most binned frames Suite2p detects ROIs on (Suite2p's nbins; frames are averaged in bins of
+      about TAU x FS). Detection memory grows with it (about 3.4 x NBINS x Ly x Lx x 4 bytes); lower it
+      for long recordings on small machines (README "Runtime").
+    defaultValue: 5000
   - name: CLASSIFIER_THRESHOLD
     type: number
     description: ROIs whose built-in classifier probability is at least this are labelled cells (iscell.npy).

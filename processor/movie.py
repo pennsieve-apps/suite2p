@@ -134,7 +134,16 @@ class TiffSource:
 
 
 def parse_scanimage(fd: dict, info: MovieInfo) -> None:
-    """Planes, channels, flyback frames and frame rate from ScanImage's FrameData."""
+    """Planes, channels, saved flyback frames and frame rate from ScanImage's FrameData.
+
+    - Fast-z volumes: `SI.hFastZ.enable` (ScanImage 5-2019) or `SI.hStackManager.enable` with
+      `SI.hStackManager.stackMode` = fast (2020+). A slow stack (stackMode slow) is a z-stack, not
+      a volume time series, and is read as one plane.
+    - Flyback frames are in the file only when ScanImage did NOT discard them
+      (`SI.hFastZ.discardFlybackFrames` false): then `numDiscardFlybackFrames` (or
+      numFramesPerVolumeWithFlyback - numFramesPerVolume) frames per volume are skipped.
+    Untested on real ScanImage files (parsed from the documented FrameData keys).
+    """
     def g(k, default=None):
         return fd.get(k, default)
 
@@ -144,12 +153,21 @@ def parse_scanimage(fd: dict, info: MovieInfo) -> None:
         info.notes.append("ScanImage multi-ROI (mesoscope) recordings are processed as one field of view")
     chans = g("SI.hChannels.channelSave", 1)
     nchan = len(chans) if isinstance(chans, (list, tuple)) else 1
-    fastz = on(g("SI.hFastZ.enable")) or on(g("SI.hStackManager.enable"))
+    mode = str(g("SI.hStackManager.stackMode", "") or "").strip("'\" ").lower()
+    stack_on = on(g("SI.hStackManager.enable"))
+    fastz = on(g("SI.hFastZ.enable")) or (stack_on and mode == "fast")
+    if stack_on and mode == "slow":
+        info.notes.append("ScanImage slow stack (a z-stack, not a volume time series): read as one plane")
     nslices = int(g("SI.hStackManager.actualNumSlices", g("SI.hStackManager.numSlices", 1)) or 1)
-    flyback = int(g("SI.hFastZ.numDiscardFlybackFrames", 0) or 0) if fastz else 0
     nplanes = nslices if fastz and nslices > 1 else 1
-    info.nchannels, info.nplanes = nchan, nplanes
-    info.flyback = flyback if nplanes > 1 else 0
+    flyback = 0
+    if nplanes > 1 and not on(g("SI.hFastZ.discardFlybackFrames")):
+        n_fb = g("SI.hFastZ.numDiscardFlybackFrames")
+        if n_fb is None and g("SI.hStackManager.numFramesPerVolumeWithFlyback") is not None:
+            n_fb = int(g("SI.hStackManager.numFramesPerVolumeWithFlyback")) - \
+                int(g("SI.hStackManager.numFramesPerVolume", nslices))
+        flyback = max(0, int(n_fb or 0))
+    info.nchannels, info.nplanes, info.flyback = nchan, nplanes, flyback
     vol = g("SI.hRoiManager.scanVolumeRate")
     frm = g("SI.hRoiManager.scanFrameRate")
     rate = vol if (nplanes > 1 and vol) else frm
@@ -291,6 +309,17 @@ def open_source(unit: Unit):
 def describe(unit: Unit, src, fs_param: float, nplanes_param: int, nchannels_param: int) -> MovieInfo:
     info = MovieInfo(n_pages=src.n_pages, Ly=src.Ly, Lx=src.Lx, dtype=src.dtype)
     src.metadata(info)
+    if unit.kind == "h5" and getattr(src, "ds", None) is not None and src.ds.ndim == 4 and nplanes_param <= 0:
+        # frames x (planes or channels) x Ly x Lx with no metadata: the second axis is planes
+        # (divided by NCHANNELS when that is set), never single-plane frames
+        k = int(src.ds.shape[1])
+        c = nchannels_param if nchannels_param > 0 else 1
+        if k % c:
+            raise MovieError(f"HDF5 dataset {src.key} is {src.ds.shape}: its second axis ({k}) is not a "
+                             f"multiple of NCHANNELS={c}; set NPLANES and NCHANNELS")
+        info.nplanes, info.nchannels, info.flyback = k // c, c, 0
+        info.notes.append(f"4-D HDF5 {tuple(src.ds.shape)}: axis 1 read as {k // c} plane(s) x {c} channel(s) "
+                          "(set NPLANES/NCHANNELS if that is wrong)")
     if nplanes_param > 0:
         info.nplanes, info.flyback = nplanes_param, 0
     if nchannels_param > 0:

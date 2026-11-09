@@ -35,6 +35,23 @@ def fit_block_size(requested: int, Ly: int, Lx: int) -> int:
     return next((b for b in BLOCKS if b <= limit), 16)
 
 
+DETECT_BYTES_PER_PIXEL = 3.5 * 4      # measured: ~3.5 float32 copies of the binned movie (anon)
+MEMORY_HEADROOM = 2.5 * 2**30         # measured: the rest of the process plus mapped binary pages
+
+
+def fit_nbins(requested: int, Ly: int, Lx: int, limit: int | None = None) -> int:
+    """NBINS lowered so detection fits the cgroup memory limit (unchanged without a limit).
+    Calibrated on the full Allen demo in Docker (846 binned 510 x 510 frames): anon peak 3.5 GB,
+    memory.peak 4.8 GB with a 6 GB limit; killed at 4 GB."""
+    from processor.resources import cgroup_memory_bytes
+    limit = cgroup_memory_bytes() if limit is None else limit
+    if not limit:
+        return requested
+    # Suite2p's bin size is frames // nbins (floored), so it may bin a few % more frames than nbins
+    fit = int(0.95 * (limit - MEMORY_HEADROOM) // (DETECT_BYTES_PER_PIXEL * Ly * Lx))
+    return max(100, min(requested, fit))
+
+
 def suite2p_settings(p: Params, fs: float, device: str, cellpose_model: Path | None,
                      block_size: int | None = None) -> dict:
     import suite2p
@@ -57,6 +74,7 @@ def suite2p_settings(p: Params, fs: float, device: str, cellpose_model: Path | N
     det = s["detection"]
     det["algorithm"] = {"functional": "sparsery", "sourcery": "sourcery", "anatomical": "cellpose"}[p.detection]
     det["threshold_scaling"] = float(p.threshold_scaling)
+    det["nbins"] = int(p.nbins)       # max binned frames for detection: the main memory term
     if p.diameter > 0:
         # sparsery's spatial scale: 1 = 6 px, 2 = 12 px, 3 = 24 px, 4 = 48 px cells
         det["sparsery_settings"]["spatial_scale"] = int(min(4, max(1, round(math.log2(p.diameter / 3)))))
@@ -186,6 +204,13 @@ def run_session(unit: Unit, p: Params, out_root: Path, device: str, cellpose_mod
         notes.append(f"BLOCK_SIZE {p.block_size} -> {block} px: the {info.Ly}x{info.Lx} field of view "
                      "needs at least two blocks per side for non-rigid registration")
     settings = suite2p_settings(p, info.fs_volume, device, cellpose_model, block)
+    nb = fit_nbins(p.nbins, info.Ly, info.Lx)
+    if nb < p.nbins:
+        bin_size = max(1, (v1 - v0) // p.nbins, round(p.tau * info.fs_volume))
+        if (v1 - v0) / bin_size > nb:
+            notes.append(f"NBINS {p.nbins} -> {nb}: detection on at most {nb} binned frames to fit the "
+                         "container's memory limit (README, Runtime)")
+        settings["detection"]["nbins"] = nb
     planes = []
     for k, db in enumerate(dbs):
         np.save(db["db_path"], db)

@@ -67,6 +67,7 @@ class Params:
     detection: str
     diameter: float         # 0 = auto
     threshold_scaling: float
+    nbins: int
     classifier_threshold: float
     keep_binary: bool
     use_gpu: str
@@ -78,7 +79,7 @@ class Params:
                  "functional_chan": "FUNCTIONAL_CHAN", "t_start": "T_START", "t_stop": "T_STOP",
                  "do_registration": "DO_REGISTRATION", "nonrigid": "NONRIGID", "block_size": "BLOCK_SIZE",
                  "batch_size": "BATCH_SIZE", "detection": "DETECTION", "diameter": "DIAMETER",
-                 "threshold_scaling": "THRESHOLD_SCALING", "classifier_threshold": "CLASSIFIER_THRESHOLD",
+                 "threshold_scaling": "THRESHOLD_SCALING", "nbins": "NBINS", "classifier_threshold": "CLASSIFIER_THRESHOLD",
                  "keep_binary": "KEEP_BINARY", "use_gpu": "USE_GPU", "threads": "THREADS", "seed": "SEED"}
         return {names[k]: v for k, v in asdict(self).items()}
 
@@ -109,6 +110,7 @@ def read_params() -> Params:
         detection=detection,
         diameter=_num("DIAMETER", 0, lo=0, hi=200),
         threshold_scaling=_num("THRESHOLD_SCALING", 1.0, lo=0.05, hi=20),
+        nbins=_num("NBINS", 5000, lo=100, hi=50000, integer=True),
         classifier_threshold=_num("CLASSIFIER_THRESHOLD", 0.5, lo=0, hi=1),
         keep_binary=_bool("KEEP_BINARY", False),
         use_gpu=use_gpu,
