@@ -12,6 +12,10 @@ import os
 import sys
 import tempfile
 
+# the runtime sets HOME and TMPDIR but may not create them
+for _v in ("HOME", "TMPDIR"):
+    if os.environ.get(_v):
+        os.makedirs(os.environ[_v], exist_ok=True)
 _tmp = os.environ.get("TMPDIR") or tempfile.gettempdir()
 for _var, _sub in (("MPLCONFIGDIR", "mpl"), ("NUMBA_CACHE_DIR", "numba"), ("XDG_CACHE_HOME", "cache"),
                    ("TORCH_HOME", "torch")):

@@ -101,15 +101,25 @@ curated segmentation of the same session is the evidence we show.
 
 | Variant | Compute | Image | When |
 |---|---|---|---|
-| `gpu` (default) | NVIDIA T4 or newer, 15 GB RAM | CUDA 12.6 PyTorch | Suite2p 1.x is PyTorch end to end; registration, detection and extraction run on the GPU. Falls back to CPU (logged `USE_GPU=auto: cuda not available, using cpu`) when no GPU is visible. `BATCH_SIZE=100` fits a T4's 16 GB; raise it on a larger card. |
-| `cpu` | 4 vCPU, 8 GB | CPU-only PyTorch | No GPU available; about 2.5-3 min per 1,000 frames of 512 × 512 (below). |
+| `gpu` (default) | NVIDIA T4 or newer, 15 GB RAM (about 20,000 frames of 512 × 512; more frames need more RAM, see Runtime) | CUDA 12.6 PyTorch | Suite2p 1.x is PyTorch end to end; registration, detection and extraction run on the GPU. Falls back to CPU (logged `USE_GPU=auto: cuda not available, using cpu`) when no GPU is visible. `BATCH_SIZE=100` fits a T4's 16 GB; raise it on a larger card. |
+| `cpu` | 4 vCPU, 16 GB | CPU-only PyTorch | No GPU available; about 1 min (native) to 3.5 min (emulated) per 1,000 frames of 512 × 512 on 4 vCPU (below). |
 
 ## Runtime
 
-Measured on the Allen demo (512 × 512, GCaMP6f, 15.04 Hz) with the `cpu` image in amd64 emulation
-on an Apple M-series Mac (Docker, 4 vCPU), so real amd64 CPUs are faster:
+Measured on the Allen demo (512 × 512, GCaMP6f, 15.04 Hz, uint16):
 
-RUNTIME_TABLE
+| Run | Where | Frames | Wall time | Peak memory |
+|---|---|---|---|---|
+| `cpu` image, `T_START=30 T_STOP=163`, `BATCH_SIZE=25` | Docker, amd64 emulation on an Apple M-series Mac, 4 vCPU, `--memory 4g` | 2,001 | 400 s (registration ~220 s) | 2.7 GB (cgroup `memory.peak`) |
+| same, `BATCH_SIZE=100` | native arm64, 4 threads | 2,001 | 300 s | 4.2 GB (max RSS) |
+| full movie, `BATCH_SIZE=25` | native arm64 (macOS, same code, torch 2.15), 6 threads | 9,405 | 469 s | 8.1 GB (max RSS, including the memory-mapped 4.9 GB binary) |
+| full movie, `cpu` image | Docker amd64 emulation, `--memory 4g` and `6g` | 9,405 | killed (out of memory) during registration | > 6 GB |
+
+Peak memory is about 3 GB plus the size of the registered movie (2 bytes × frames × Ly × Lx), because
+Suite2p memory-maps the binary while registering and the mapped pages count against the container's
+limit; the `cpu` variant asks for 16 GB (about 25,000 frames of 512 × 512). Registration dominates
+the time (the full demo: ~7 min of 8 natively). `BATCH_SIZE=25` halves registration's transient
+memory (4.2 → 2.5 GB at 2,001 frames) for ~15 % more time.
 
 GPU numbers: to be measured on the dev compute node. The research notes estimate 15-25 min for
 30,000 frames on one T4-class GPU.
@@ -121,7 +131,18 @@ sized for standard/GPU tasks.
 
 ## Results on the demo
 
-DEMO_RESULTS
+Full demo movie (9,405 frames, 625 s of the first drifting-gratings block; outputs in
+`workflow-systems-neuroscience/data/work/allen-2p/suite2p/`): 1,363 ROIs, **385 classified as
+cells**; registration shifts ≤ 1.4 px (the movie was motion-corrected by Allen), residual PC drift
+0.41 px. **201 of Allen's 353 ROIs (57 %) are matched one-to-one by our cells at IoU > 0.5**
+(median IoU of the matches 0.80; 64 % are matched by some ROI when the classifier is ignored), and
+52 % of our cells have an Allen partner. Allen segmented the whole 64-min session (and filtered its
+ROIs by its own criteria), so cells that are silent in our 10-min window cannot be found functionally;
+our unmatched cells are cells Allen left out or false positives (not checked one by one).
+On the 2,001-frame crop (133 s):
+910 ROIs, 224 cells, 103 of 353 Allen ROIs matched (29 %): the longer the recording, the more cells.
+Synthetic fixture: every planted cell found (IoU > 0.25 with an accepted ROI), planted motion
+recovered (correlation > 0.9).
 
 ## Limitations
 

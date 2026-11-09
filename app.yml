@@ -22,10 +22,11 @@ application:
     - quality-control
     - gpu
 runtime:
-  # Shared by both variants (below), these are the cpu variant's values. Measured on the Allen demo
-  # (512 x 512, 2,001 frames, BATCH_SIZE=25, amd64 emulation): see README "Runtime".
+  # Shared by both variants (below), these are the cpu variant's values. Peak memory is about 3 GB plus
+  # the registered movie (int16, Suite2p memory-maps it): 2.7 GB for 2,001 frames of 512 x 512, 8.1 GB
+  # for the full 9,405-frame demo (README "Runtime"). 16 GB covers about 25,000 frames of 512 x 512.
   cpu: 4096
-  memory: 8192
+  memory: 16384
   computeTypes:
     - standard
   timeoutSeconds: 28800
@@ -177,7 +178,7 @@ variants:
   - id: cpu
     name: CPU
     description: >-
-      CPU-only PyTorch on a standard task; about 2.5 minutes per 1,000 frames of 512 x 512 on 4 vCPU
+      CPU-only PyTorch on a standard task; about 1-3.5 minutes per 1,000 frames of 512 x 512 on 4 vCPU
       (measured in amd64 emulation, see README).
     build:
       args:
