@@ -169,7 +169,8 @@ trained on CC-BY-NC data, which does not clearly allow redistribution for every 
 
 ## Citations
 
-If you use this app, cite Suite2p and the works below (also in `CITATION.cff`):
+Please cite these works if you use this app (Suite2p asks for Stringer et al. 2026). Verified on
+Crossref/DataCite and PubMed; full author lists in `CITATION.cff`.
 
 - Stringer C, Ki C, Del Grosso N, LaFosse P, Zhang Q, Pachitariu M (2026). Extracting large-scale neural activity with Suite2p. *bioRxiv*. doi:10.64898/2026.02.04.703741 (the paper Suite2p asks you to cite)
 - Pachitariu M, Stringer C, Dipoppa M, Schröder S, Rossi LF, Dalgleish H, Carandini M, Harris KD (2016). Suite2p: beyond 10,000 neurons with standard two-photon microscopy. *bioRxiv*. doi:10.1101/061507
@@ -177,3 +178,9 @@ If you use this app, cite Suite2p and the works below (also in `CITATION.cff`):
 - With `DETECTION=anatomical`: Stringer C, Wang T, Michaelos M, Pachitariu M (2021). Cellpose: a generalist algorithm for cellular segmentation. *Nature Methods* 18:100-106. doi:10.1038/s41592-020-01018-x; and Pachitariu M, Rariden M, Stringer C (2025). Cellpose-SAM: superhuman generalization for cellular segmentation. *bioRxiv*. doi:10.1101/2025.04.28.651001
 - Rübel O, Tritt A, Ly R, Dichter BK, Ghosh S, Niu L, Baker P, Soltesz I, Ng L, Svoboda K, Frank L, Bouchard KE (2022). The Neurodata Without Borders ecosystem for neurophysiological data science. *eLife* 11:e78362. doi:10.7554/eLife.78362, PMID: 36193886
 - Demo data: Baker C (2024). Allen Institute - Visual Coding - Optical Physiology. DANDI Archive. doi:10.48324/dandi.000728/0.240827.1809 (CC-BY-4.0); and de Vries SEJ, Lecoq JA, Buice MA, Groblewski PA, Ocker GK, Oliver M, Feng D, Cain N, Ledochowitsch P, Millman D, Roll K, Garrett M, Keenan T, Kuan L, Mihalas S, Olsen S, Thompson C, Wakeman W, Waters J, Williams D, Barber C, Berbesque N, Blanchard B, Bowles N, Caldejon SD, Casal L, Cho A, Cross S, Dang C, Dolbeare T, Edwards M, Galbraith J, Gaudreault N, Gilbert TL, Griffin F, Hargrave P, Howard R, Huang L, Jewell S, Keller N, Knoblich U, Larkin JD, Larsen R, Lau C, Lee E, Lee F, Leon A, Li L, Long F, Luviano J, Mace K, Nguyen T, Perkins J, Robertson M, Seid S, Shea-Brown E, Shi J, Sjoquist N, Slaughterbeck C, Sullivan D, Valenza R, White C, Williford A, Witten DM, Zhuang J, Zeng H, Farrell C, Ng L, Bernard A, Phillips JW, Reid RC, Koch C (2020). A large-scale standardized physiological survey reveals functional organization of the mouse visual cortex. *Nature Neuroscience* 23:138-151. doi:10.1038/s41593-019-0550-9, PMID: 31844315
+
+## Acknowledgements
+
+Suite2p is developed by Carsen Stringer, Marius Pachitariu and colleagues (MouseLand, HHMI Janelia
+Research Campus); its built-in cell classifier ships with it. The demo data are the Allen Institute's
+Allen Brain Observatory (Visual Coding - Optical Physiology), shared on the DANDI Archive.
