@@ -1,0 +1,331 @@
+cff-version: 1.2.0
+message: If you use this app, please cite it and the works it builds on, listed under references.
+type: software
+title: suite2p
+abstract: 'Motion correction, ROI detection, cell classification and fluorescence/neuropil extraction
+  of two-photon calcium imaging movies with Suite2p 1.x, packaged as a Pennsieve processor: TIFF/BigTIFF
+  (incl. ScanImage), HDF5, NWB and Bruker input, frame times on the session clock, Suite2p''s standard
+  output folders, QC figures, and a comparison with reference ROIs from a companion NWB.'
+authors:
+- name: Pennsieve (University of Pennsylvania)
+contact:
+- given-names: Joost
+  family-names: Wagenaar
+  orcid: https://orcid.org/0009-0004-5925-5451
+  affiliation: University of Pennsylvania
+repository-code: https://github.com/pennsieve-apps/suite2p
+license: GPL-3.0-or-later
+keywords:
+- neuroscience
+- calcium-imaging
+- two-photon
+- nwb
+- suite2p
+- motion-correction
+- cell-detection
+references:
+- type: software
+  title: Suite2p
+  authors:
+  - family-names: Stringer
+    given-names: Carsen
+  - family-names: Pachitariu
+    given-names: Marius
+  repository-code: https://github.com/MouseLand/suite2p
+  version: 1.1.0
+  license: GPL-3.0
+- type: article
+  title: Extracting large-scale neural activity with Suite2p
+  authors:
+  - family-names: Stringer
+    given-names: Carsen
+  - family-names: Ki
+    given-names: Chris
+  - family-names: Del Grosso
+    given-names: Nicholas
+  - family-names: LaFosse
+    given-names: Paul
+  - family-names: Zhang
+    given-names: Qingqing
+  - family-names: Pachitariu
+    given-names: Marius
+  year: 2026
+  doi: 10.64898/2026.02.04.703741
+  publisher:
+    name: bioRxiv
+- type: article
+  title: 'Suite2p: beyond 10,000 neurons with standard two-photon microscopy'
+  authors:
+  - family-names: Pachitariu
+    given-names: Marius
+  - family-names: Stringer
+    given-names: Carsen
+  - family-names: Dipoppa
+    given-names: Mario
+  - family-names: Schröder
+    given-names: Sylvia
+  - family-names: Rossi
+    given-names: L. Federico
+  - family-names: Dalgleish
+    given-names: Henry
+  - family-names: Carandini
+    given-names: Matteo
+  - family-names: Harris
+    given-names: Kenneth D.
+  year: 2016
+  doi: 10.1101/061507
+  publisher:
+    name: bioRxiv
+- type: article
+  title: Fast online deconvolution of calcium imaging data
+  authors:
+  - family-names: Friedrich
+    given-names: Johannes
+  - family-names: Zhou
+    given-names: Pengcheng
+  - family-names: Paninski
+    given-names: Liam
+  year: 2017
+  doi: 10.1371/journal.pcbi.1005423
+  journal: PLOS Computational Biology
+  volume: 13
+  start: e1005423
+  identifiers:
+  - type: other
+    value: '28291787'
+    description: PubMed ID
+- type: article
+  title: 'Cellpose: a generalist algorithm for cellular segmentation'
+  authors:
+  - family-names: Stringer
+    given-names: Carsen
+  - family-names: Wang
+    given-names: Tim
+  - family-names: Michaelos
+    given-names: Michalis
+  - family-names: Pachitariu
+    given-names: Marius
+  year: 2021
+  doi: 10.1038/s41592-020-01018-x
+  journal: Nature Methods
+  volume: 18
+  start: '100'
+  end: '106'
+- type: article
+  title: 'Cellpose-SAM: superhuman generalization for cellular segmentation'
+  authors:
+  - family-names: Pachitariu
+    given-names: Marius
+  - family-names: Rariden
+    given-names: Michael
+  - family-names: Stringer
+    given-names: Carsen
+  year: 2025
+  doi: 10.1101/2025.04.28.651001
+  publisher:
+    name: bioRxiv
+- type: article
+  title: The Neurodata Without Borders ecosystem for neurophysiological data science
+  authors:
+  - family-names: Rübel
+    given-names: Oliver
+  - family-names: Tritt
+    given-names: Andrew
+  - family-names: Ly
+    given-names: Ryan
+  - family-names: Dichter
+    given-names: Benjamin K
+  - family-names: Ghosh
+    given-names: Satrajit
+  - family-names: Niu
+    given-names: Lawrence
+  - family-names: Baker
+    given-names: Pamela
+  - family-names: Soltesz
+    given-names: Ivan
+  - family-names: Ng
+    given-names: Lydia
+  - family-names: Svoboda
+    given-names: Karel
+  - family-names: Frank
+    given-names: Loren
+  - family-names: Bouchard
+    given-names: Kristofer E
+  year: 2022
+  doi: 10.7554/eLife.78362
+  journal: eLife
+  volume: 11
+  start: e78362
+  identifiers:
+  - type: other
+    value: '36193886'
+    description: PubMed ID
+- type: article
+  title: A large-scale standardized physiological survey reveals functional organization of the mouse
+    visual cortex
+  authors:
+  - family-names: de Vries
+    given-names: Saskia E. J.
+  - family-names: Lecoq
+    given-names: Jerome A.
+  - family-names: Buice
+    given-names: Michael A.
+  - family-names: Groblewski
+    given-names: Peter A.
+  - family-names: Ocker
+    given-names: Gabriel K.
+  - family-names: Oliver
+    given-names: Michael
+  - family-names: Feng
+    given-names: David
+  - family-names: Cain
+    given-names: Nicholas
+  - family-names: Ledochowitsch
+    given-names: Peter
+  - family-names: Millman
+    given-names: Daniel
+  - family-names: Roll
+    given-names: Kate
+  - family-names: Garrett
+    given-names: Marina
+  - family-names: Keenan
+    given-names: Tom
+  - family-names: Kuan
+    given-names: Leonard
+  - family-names: Mihalas
+    given-names: Stefan
+  - family-names: Olsen
+    given-names: Shawn
+  - family-names: Thompson
+    given-names: Carol
+  - family-names: Wakeman
+    given-names: Wayne
+  - family-names: Waters
+    given-names: Jack
+  - family-names: Williams
+    given-names: Derric
+  - family-names: Barber
+    given-names: Chris
+  - family-names: Berbesque
+    given-names: Nathan
+  - family-names: Blanchard
+    given-names: Brandon
+  - family-names: Bowles
+    given-names: Nicholas
+  - family-names: Caldejon
+    given-names: Shiella D.
+  - family-names: Casal
+    given-names: Linzy
+  - family-names: Cho
+    given-names: Andrew
+  - family-names: Cross
+    given-names: Sissy
+  - family-names: Dang
+    given-names: Chinh
+  - family-names: Dolbeare
+    given-names: Tim
+  - family-names: Edwards
+    given-names: Melise
+  - family-names: Galbraith
+    given-names: John
+  - family-names: Gaudreault
+    given-names: Nathalie
+  - family-names: Gilbert
+    given-names: Terri L.
+  - family-names: Griffin
+    given-names: Fiona
+  - family-names: Hargrave
+    given-names: Perry
+  - family-names: Howard
+    given-names: Robert
+  - family-names: Huang
+    given-names: Lawrence
+  - family-names: Jewell
+    given-names: Sean
+  - family-names: Keller
+    given-names: Nika
+  - family-names: Knoblich
+    given-names: Ulf
+  - family-names: Larkin
+    given-names: Josh D.
+  - family-names: Larsen
+    given-names: Rachael
+  - family-names: Lau
+    given-names: Chris
+  - family-names: Lee
+    given-names: Eric
+  - family-names: Lee
+    given-names: Felix
+  - family-names: Leon
+    given-names: Arielle
+  - family-names: Li
+    given-names: Lu
+  - family-names: Long
+    given-names: Fuhui
+  - family-names: Luviano
+    given-names: Jennifer
+  - family-names: Mace
+    given-names: Kyla
+  - family-names: Nguyen
+    given-names: Thuyanh
+  - family-names: Perkins
+    given-names: Jed
+  - family-names: Robertson
+    given-names: Miranda
+  - family-names: Seid
+    given-names: Sam
+  - family-names: Shea-Brown
+    given-names: Eric
+  - family-names: Shi
+    given-names: Jianghong
+  - family-names: Sjoquist
+    given-names: Nathan
+  - family-names: Slaughterbeck
+    given-names: Cliff
+  - family-names: Sullivan
+    given-names: David
+  - family-names: Valenza
+    given-names: Ryan
+  - family-names: White
+    given-names: Casey
+  - family-names: Williford
+    given-names: Ali
+  - family-names: Witten
+    given-names: Daniela M.
+  - family-names: Zhuang
+    given-names: Jun
+  - family-names: Zeng
+    given-names: Hongkui
+  - family-names: Farrell
+    given-names: Colin
+  - family-names: Ng
+    given-names: Lydia
+  - family-names: Bernard
+    given-names: Amy
+  - family-names: Phillips
+    given-names: John W.
+  - family-names: Reid
+    given-names: R. Clay
+  - family-names: Koch
+    given-names: Christof
+  year: 2020
+  doi: 10.1038/s41593-019-0550-9
+  journal: Nature Neuroscience
+  volume: 23
+  start: '138'
+  end: '151'
+  identifiers:
+  - type: other
+    value: '31844315'
+    description: PubMed ID
+- type: data
+  title: Allen Institute - Visual Coding - Optical Physiology
+  authors:
+  - family-names: Baker
+    given-names: Cody
+  year: 2024
+  doi: 10.48324/dandi.000728/0.240827.1809
+  url: https://doi.org/10.48324/dandi.000728/0.240827.1809
+  publisher:
+    name: DANDI Archive
+

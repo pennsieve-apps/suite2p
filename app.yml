@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=https://schemas.pennsieve.io/app-manifest/v1.json
+schemaVersion: "1.0"
+application:
+  name: suite2p
+  description: >-
+    Motion correction, cell detection and fluorescence extraction of two-photon calcium imaging
+    movies with Suite2p 1.x (Stringer, Pachitariu et al., HHMI Janelia; GPL-3.0), packaged by
+    Pennsieve. Reads multi-page TIFF/BigTIFF (incl. ScanImage and OME-TIFF), HDF5 and NWB TwoPhotonSeries; registers each plane (rigid then non-rigid), finds ROIs from their activity, labels them
+    with Suite2p's built-in cell classifier, extracts ROI and neuropil fluorescence, and writes
+    Suite2p's standard folders with frame times on the session clock and QC figures (mean/max
+    projection, ROI overlay, registration offsets). The first step of the Two-photon Calcium Imaging
+    workflow; ophys-traces reads its output.
+  type: processor
+  tags:
+    - neuroscience
+    - calcium-imaging
+    - two-photon
+    - nwb
+    - suite2p
+    - motion-correction
+    - cell-detection
+    - quality-control
+    - gpu
+runtime:
+  # Shared by both variants (below), these are the cpu variant's values. Measured on the Allen demo
+  # (512 x 512, 2,001 frames, BATCH_SIZE=25, amd64 emulation): see README "Runtime".
+  cpu: 4096
+  memory: 8192
+  computeTypes:
+    - standard
+  timeoutSeconds: 28800
+parameters:
+  - name: FS
+    type: number
+    description: >-
+      Frame rate per plane (Hz). 0 = from the frame times (<movie>_timestamps.csv or the NWB
+      TwoPhotonSeries) or the file's metadata (ScanImage, ImageJ, HDF5 attributes).
+    defaultValue: 0
+  - name: TAU
+    type: number
+    description: >-
+      Decay time of the calcium indicator (s): 0.7 for GCaMP6f (default), 1.0 for GCaMP6m, 1.25-1.5
+      for GCaMP6s, about 0.3-0.5 for GCaMP8f/m. Sets the time binning used for detection.
+    defaultValue: 0.7
+  - name: NPLANES
+    type: integer
+    description: Planes interleaved in the movie; 0 = from ScanImage metadata, else 1.
+    defaultValue: 0
+  - name: NCHANNELS
+    type: integer
+    description: Channels interleaved in the movie (1 or 2); 0 = from ScanImage metadata, else 1.
+    defaultValue: 0
+  - name: FUNCTIONAL_CHAN
+    type: integer
+    description: With two channels, the one with the calcium indicator (1 or 2).
+    defaultValue: 1
+  - name: T_START
+    type: number
+    description: Optional start of a time window (s, session clock); empty = from the first frame. Times are never re-zeroed.
+    defaultValue: ""
+  - name: T_STOP
+    type: number
+    description: Optional end of the time window (s, session clock); empty = to the last frame.
+    defaultValue: ""
+  - name: DO_REGISTRATION
+    type: boolean
+    description: Motion-correct the movie (false for movies that were registered before).
+    defaultValue: true
+  - name: NONRIGID
+    type: boolean
+    description: After the rigid shift, also correct non-rigid (piecewise) motion in blocks of BLOCK_SIZE pixels.
+    defaultValue: true
+  - name: BLOCK_SIZE
+    type: integer
+    description: Block size (px) of non-rigid registration; reduced automatically for small fields of view.
+    defaultValue: 128
+  - name: BATCH_SIZE
+    type: integer
+    description: >-
+      Frames registered at a time. Memory grows with it (about 4 GB peak at 100 frames of 512 x 512
+      on CPU, 2.5 GB at 25); on a GPU larger batches are faster.
+    defaultValue: 25
+  - name: DETECTION
+    type: string
+    description: >-
+      functional (Suite2p's default sparsery: ROIs from correlated activity), sourcery (Suite2p's
+      older functional method, uses DIAMETER) or anatomical (Cellpose on the mean/max image; needs a
+      Cellpose model file in the cellpose-model input, none is bundled).
+    defaultValue: functional
+  - name: DIAMETER
+    type: number
+    description: Expected cell diameter (px). 0 = automatic (sparsery estimates the scale; sourcery/Cellpose use 12).
+    defaultValue: 0
+  - name: THRESHOLD_SCALING
+    type: number
+    description: Detection threshold multiplier; higher finds fewer, stronger ROIs.
+    defaultValue: 1.0
+  - name: CLASSIFIER_THRESHOLD
+    type: number
+    description: ROIs whose built-in classifier probability is at least this are labelled cells (iscell.npy).
+    defaultValue: 0.5
+  - name: KEEP_BINARY
+    type: boolean
+    description: Keep the registered movie (data.bin, int16, as large as the raw movie) in each plane folder.
+    defaultValue: false
+  - name: SEED
+    type: integer
+    description: Seed for numpy and torch.
+    defaultValue: 42
+  - name: THREADS
+    type: integer
+    description: CPU threads; 0 = one per CPU of the container's quota.
+    defaultValue: 0
+  - name: USE_GPU
+    type: string
+    description: >-
+      auto (use the GPU when torch sees one), true (same, with a warning when there is none) or false
+      (always CPU). The cpu variant's image has no CUDA libraries.
+    defaultValue: "false"
+inputs:
+  - name: movies
+    description: >-
+      Two-photon movies, one session each: multi-page TIFF/BigTIFF (a ScanImage series of
+      <name>_00001.tif, <name>_00002.tif, ... is one movie), HDF5 (dataset `data` or the largest 3-D
+      one), or NWB with a TwoPhotonSeries in acquisition. Optional:
+      <movie stem>_timestamps.csv (frame, time) next to a movie, sessions.csv (session_id, path,
+      subject_id, condition, group), and a companion NWB of the same session (its identity is
+      carried into session.json).
+    mediaTypes:
+      - image/tiff
+      - "image/tiff; profile=ome-tiff"
+      - application/x-hdf5
+      - "application/x-hdf5; profile=nwb"
+      - text/csv
+    placement: subfolder
+    required: true
+  - name: cellpose-model
+    description: >-
+      Optional: a Cellpose model file for DETECTION=anatomical (for example Cellpose-SAM weights the
+      lab obtained itself, or its own trained model). Not needed for the default functional detection.
+    mediaTypes:
+      - application/octet-stream
+    placement: subfolder
+    required: false
+outputs:
+  - name: suite2p
+    description: >-
+      suite2p/<session_id>/plane<k>/ with Suite2p's standard files (ops.npy, stat.npy, F.npy,
+      Fneu.npy, spks.npy, iscell.npy; data.bin with KEEP_BINARY) and timestamps.npy;
+      suite2p/<session_id>/session.json (frame rate, frames, planes, size, time source, t_start,
+      source NWB identity) and timestamps.npy (session clock); QC figures
+      <session_id>_mean_image.png, _rois.png, _registration.png; suite2p/sessions.csv, summary.json,
+      provenance.json.
+    mediaTypes:
+      - application/octet-stream
+      - application/json
+      - text/csv
+      - image/png
+variants:
+  - id: gpu
+    name: GPU
+    default: true
+    description: >-
+      CUDA PyTorch on an NVIDIA GPU (T4 or newer): Suite2p 1.x registers, detects and extracts on the
+      GPU, many times faster than on CPU. Falls back to CPU when no GPU is visible.
+    build:
+      args:
+        TORCH_FLAVOUR: cuda
+    runtime:
+      computeTypes: [gpu]
+      memory: 15360
+    parameters:
+      USE_GPU:
+        defaultValue: "auto"
+      BATCH_SIZE:
+        defaultValue: 100
+  - id: cpu
+    name: CPU
+    description: >-
+      CPU-only PyTorch on a standard task; about 2.5 minutes per 1,000 frames of 512 x 512 on 4 vCPU
+      (measured in amd64 emulation, see README).
+    build:
+      args:
+        TORCH_FLAVOUR: cpu
+    runtime:
+      computeTypes: [standard]
+
+# How a release is tested before it is made public: the inputs a review run uses.
+# See app-deploy-service docs/app-manifest-review.md.
+review:
+  version: 1
+  generate:
+    command: python -m tests.make_fixture "$REVIEW_INPUT_DIR" --layout both
+    root: linked
