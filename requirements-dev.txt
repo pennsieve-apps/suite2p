@@ -1,0 +1,14 @@
+# Local tests and validation (macOS / Linux): pip install -r requirements-dev.txt
+# (pip resolves torch for the local platform; the image pins the linux/amd64 set in requirements.txt)
+suite2p==1.1.0
+numpy==2.5.4
+scipy==1.18.1
+tifffile==2026.11.8
+h5py==3.16.0
+matplotlib==3.11.2
+natsort==8.4.0
+pynwb==4.2.0
+pytest==8.4.1
+jsonschema==3.2.0
+PyYAML==6.0.3
+cffconvert==2.0.0

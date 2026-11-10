@@ -1,0 +1,18 @@
+services:
+  processor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TORCH_FLAVOUR: cpu
+    image: suite2p:cpu
+    platform: linux/amd64
+    user: "1000"
+    mem_limit: 4g
+    cpus: 4
+    network_mode: none
+    env_file:
+      - dev.env
+    volumes:
+      - ./data/fixture/linked:/data/input:ro
+      - ./data/output:/data/output
