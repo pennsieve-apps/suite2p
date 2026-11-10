@@ -136,8 +136,8 @@ What uses memory:
   30-Hz session** (108,000 frames → 5,000 binned frames by default) **fits by detecting on about
   3,850 binned frames** (bins of 28 frames, 0.93 s), which
   costs little for indicators as slow as GCaMP6. To detect on all 5,000, give the step ~20 GB.
-  The 4-GB run above shows the cost of a hard cap: 433 instead of 846 binned frames found 380 instead
-  of 383 cells and matched 196 instead of 201 Allen ROIs.
+  The 4-GB run above shows the cost of a hard cap: 433 instead of 846 binned frames found 1,092 instead of
+  1,363 ROIs and 380 instead of 383 cells and matched 196 instead of 201 Allen ROIs.
 - The scratch disk needs the binary's size (16 GB for 30,000 frames of 512 × 512).
 
 GPU numbers: to be measured on the dev compute node. The research notes estimate 15-25 min for
