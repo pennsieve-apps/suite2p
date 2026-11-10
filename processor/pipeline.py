@@ -39,17 +39,65 @@ DETECT_BYTES_PER_PIXEL = 3.5 * 4      # measured: ~3.5 float32 copies of the bin
 MEMORY_HEADROOM = 2.5 * 2**30         # measured: the rest of the process plus mapped binary pages
 
 
-def fit_nbins(requested: int, Ly: int, Lx: int, limit: int | None = None) -> int:
-    """NBINS lowered so detection fits the cgroup memory limit (unchanged without a limit).
-    Calibrated on the full Allen demo in Docker (846 binned 510 x 510 frames): anon peak 3.5 GB,
-    memory.peak 4.8 GB with a 6 GB limit; killed at 4 GB."""
+GPU_HEADROOM = 1.0 * 2**30            # CUDA context and Suite2p's other GPU buffers
+
+
+def memory_limit() -> tuple[int | None, str]:
+    """The memory this process may use: the cgroup limit, else (no container limit, e.g. an ECS task
+    whose limit is on the task, not the container) the machine's MemTotal from /proc/meminfo."""
     from processor.resources import cgroup_memory_bytes
-    limit = cgroup_memory_bytes() if limit is None else limit
-    if not limit:
-        return requested
-    # Suite2p's bin size is frames // nbins (floored), so it may bin a few % more frames than nbins
-    fit = int(0.95 * (limit - MEMORY_HEADROOM) // (DETECT_BYTES_PER_PIXEL * Ly * Lx))
-    return max(100, min(requested, fit))
+    lim = cgroup_memory_bytes()
+    if lim:
+        return lim, "cgroup memory.max"
+    try:
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemTotal:"):
+                return int(line.split()[1]) * 1024, "/proc/meminfo MemTotal"
+    except (OSError, ValueError, IndexError):
+        pass
+    return None, "unknown"
+
+
+def gpu_free_bytes(device: str) -> int | None:
+    if device != "cuda":
+        return None
+    try:
+        import torch
+        return int(torch.cuda.mem_get_info()[0])
+    except Exception:
+        return None
+
+
+def nbins_cap(requested: int, Ly: int, Lx: int, mem: int | None, vram: int | None = None) -> tuple[int, str]:
+    """NBINS lowered so detection fits in RAM (mem) and, on a GPU, in its free VRAM; the smaller cap
+    wins. Detection takes ~14 bytes per binned pixel (3.5 float32 copies of the binned movie),
+    calibrated on the full Allen demo in Docker (846 binned 510 x 510 frames: anon peak 3.5 GB,
+    memory.peak 4.8 GB with a 6 GB limit; killed at 4 GB). The 0.95 covers Suite2p's rounding of
+    the bin size (frames // nbins)."""
+    per_bin = DETECT_BYTES_PER_PIXEL * Ly * Lx
+    caps = {}
+    if mem:
+        caps["RAM"] = int(0.95 * (mem - MEMORY_HEADROOM) // per_bin)
+    if vram:
+        caps["GPU memory"] = int(0.95 * (vram - GPU_HEADROOM) // per_bin)
+    if not caps:
+        return requested, "no memory limit known"
+    which = min(caps, key=caps.get)
+    nb = max(100, min(requested, caps[which]))
+    return nb, f"{which} cap {caps[which]}" + (f", RAM cap {caps['RAM']}" if which != "RAM" and "RAM" in caps else "") \
+        + (f", GPU cap {caps['GPU memory']}" if which == "RAM" and "GPU memory" in caps else "")
+
+
+def fit_nbins(requested: int, Ly: int, Lx: int, limit: int | None = None, device: str = "cpu") -> int:
+    """nbins_cap with the memory limit (cgroup, else MemTotal) and, on cuda, the free VRAM; logged."""
+    src = "argument"
+    if limit is None:
+        limit, src = memory_limit()
+    vram = gpu_free_bytes(device)
+    nb, why = nbins_cap(requested, Ly, Lx, limit, vram)
+    log.info(f"NBINS: {nb} (requested {requested}; memory {limit / 2**30 if limit else 0:.1f} GB from {src}"
+             f"{f', GPU free {vram / 2**30:.1f} GB' if vram else ''}; {why})")
+    return nb
 
 
 def suite2p_settings(p: Params, fs: float, device: str, cellpose_model: Path | None,
@@ -204,12 +252,12 @@ def run_session(unit: Unit, p: Params, out_root: Path, device: str, cellpose_mod
         notes.append(f"BLOCK_SIZE {p.block_size} -> {block} px: the {info.Ly}x{info.Lx} field of view "
                      "needs at least two blocks per side for non-rigid registration")
     settings = suite2p_settings(p, info.fs_volume, device, cellpose_model, block)
-    nb = fit_nbins(p.nbins, info.Ly, info.Lx)
+    nb = fit_nbins(p.nbins, info.Ly, info.Lx, device=device)
     if nb < p.nbins:
         bin_size = max(1, (v1 - v0) // p.nbins, round(p.tau * info.fs_volume))
         if (v1 - v0) / bin_size > nb:
             notes.append(f"NBINS {p.nbins} -> {nb}: detection on at most {nb} binned frames to fit the "
-                         "container's memory limit (README, Runtime)")
+                         "memory limit (RAM, or the GPU's free memory; README, Runtime)")
         settings["detection"]["nbins"] = nb
     planes = []
     for k, db in enumerate(dbs):

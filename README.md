@@ -129,7 +129,10 @@ What uses memory:
   `$TMPDIR` and memory-mapped by Suite2p: its pages are file-backed and reclaimable, but they count
   toward `memory.peak` and in practice need ~2.5 GB of headroom. Memory does **not** grow with the
   movie's length beyond that.
-- So the app caps `NBINS` to what fits the container's memory limit: binned frames ≤ 0.95 × (limit −
+- So the app caps `NBINS` to what fits the memory limit (the cgroup's `memory.max`, else the machine's
+  `MemTotal` when the container itself has no limit, as on an ECS task with a task-level limit; and on
+  the `gpu` variant also the GPU's free memory minus 1 GB, the smaller cap winning; the source and caps
+  are logged): binned frames ≤ 0.95 × (limit −
   2.5 GB) / (14 bytes × Ly × Lx) (the 5 % margin covers Suite2p's rounding of the bin size), logged
   in `session.json` `notes`. With the `cpu` variant's 16 GB that is 3,752 binned frames of 512 × 512,
   enough for **about 43 min at 30 Hz with GCaMP6f** (bins of 21 frames) without capping; a **60-min,

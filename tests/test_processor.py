@@ -214,6 +214,29 @@ def test_nbins_fits_memory_limit():
     assert fit_nbins(5000, 128, 128, limit=4 * 2**30) == 5000
 
 
+def test_nbins_cap_sources(monkeypatch, tmp_path):
+    import processor.pipeline as pp
+    import processor.resources as res
+    # no cgroup limit: falls back to /proc/meminfo MemTotal
+    monkeypatch.setattr(res, "cgroup_memory_bytes", lambda *a, **k: None)
+    meminfo = tmp_path / "meminfo"
+    meminfo.write_text("MemTotal:       16777216 kB\nMemFree: 1 kB\n")
+    real_path = pp.Path
+    monkeypatch.setattr(pp, "Path", lambda x: real_path(meminfo) if x == "/proc/meminfo" else real_path(x))
+    assert pp.memory_limit() == (16 * 2**30, "/proc/meminfo MemTotal")
+    assert pp.fit_nbins(5000, 512, 512) == 3752
+    # cgroup limit wins when present
+    monkeypatch.setattr(res, "cgroup_memory_bytes", lambda *a, **k: 4 * 2**30)
+    assert pp.memory_limit() == (4 * 2**30, "cgroup memory.max")
+    # on a GPU the free VRAM caps too; the smaller cap wins
+    monkeypatch.setattr(res, "cgroup_memory_bytes", lambda *a, **k: 64 * 2**30)
+    monkeypatch.setattr(pp, "gpu_free_bytes", lambda device: 6 * 2**30 if device == "cuda" else None)
+    nb, why = pp.nbins_cap(5000, 512, 512, 64 * 2**30, 6 * 2**30)
+    assert nb == 1389 and why.startswith("GPU memory cap")
+    assert pp.fit_nbins(5000, 512, 512, device="cuda") == 1389
+    assert pp.fit_nbins(5000, 512, 512, device="cpu") == 5000
+
+
 def test_block_size_fits_small_fields():
     from processor.pipeline import fit_block_size
     assert fit_block_size(128, 512, 512) == 128
