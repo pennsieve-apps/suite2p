@@ -1,5 +1,6 @@
 cff-version: 1.2.0
-message: If you use this app, please cite it and the works it builds on, listed under references.
+message: >-
+  If you use this app, please cite the work it implements (preferred-citation), this release, and Pennsieve (RRID:SCR_021677); the other works it builds on are listed under references.
 type: software
 title: suite2p
 abstract: 'Motion correction, ROI detection, cell classification and fluorescence/neuropil extraction
@@ -23,6 +24,27 @@ keywords:
 - suite2p
 - motion-correction
 - cell-detection
+# The work this app implements; the release report's "How to cite" puts it first.
+preferred-citation:
+  type: article
+  title: Extracting large-scale neural activity with Suite2p
+  authors:
+  - family-names: Stringer
+    given-names: Carsen
+  - family-names: Ki
+    given-names: Chris
+  - family-names: Del Grosso
+    given-names: Nicholas
+  - family-names: LaFosse
+    given-names: Paul
+  - family-names: Zhang
+    given-names: Qingqing
+  - family-names: Pachitariu
+    given-names: Marius
+  year: 2026
+  doi: 10.64898/2026.02.04.703741
+  publisher:
+    name: bioRxiv
 references:
 - type: software
   title: Suite2p
